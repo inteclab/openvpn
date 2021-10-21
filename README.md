@@ -1,3 +1,11 @@
+# A Clone from Kylemanna Docker OpenVPN with the below enhancement
+
+- Added Nginx to redirect TCP flows on specific port
+
+
+# The rediection of TCP flow is for bbg_client
+
+
 # OpenVPN for Docker
 
 [![Build Status](https://travis-ci.org/kylemanna/docker-openvpn.svg)](https://travis-ci.org/kylemanna/docker-openvpn)

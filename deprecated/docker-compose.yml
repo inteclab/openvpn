@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  openvpn:
+    container_name: openvpn
+    image: kylemanna/openvpn
+    cap_add:
+     - NET_ADMIN
+    ports:
+     - "1194:1194/udp"
+     - "9988:9988/tcp"
+#    network_mode: "host"
+    restart: always
+    volumes:
+     - /lab/data/docker/volume/openvpn-data:/etc/openvpn
+       # networks:
+       #   default:
+       #     external:
+       #       name: lab_default

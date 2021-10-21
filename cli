@@ -1,0 +1,255 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+Module: OpenVPN Build CLI
+------------------------------
+
+Author: Peter Lee (peter.lee@finclab.com)
+Last Update: 2021-10-21
+
+Commandline interface for Building the OpenVPN Images
+
+The below interfaces are supported:
+
+    >>> ./cli build  # to build the latest image and deploy to swarm
+    >>> ./cli push   # to push to Image Registry
+    >>> ./cli start  # to deploy the image to the target environment
+                     # (Swarm or Container)
+    >>> ./cli stop   # to Stop the running container in Swarm or Container
+    >>> ./cli log    # to view the log
+    >>> ./cli shell  # to log on to the container
+
+# Override the default environment
+
+The default environment to build is by the `git` branch name:
+    - branch `main` --> build `paper`
+    - branch `prod` --> build `prod`
+    - other branches --> build `dev`
+
+You can override the environment by passing in the argument:
+
+    >>> --labenv {ENV_NAME}
+
+"""
+
+import os
+import typing
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional
+
+import finclab.cli.build
+import finclab.cli.build.util
+import finclab.config.helper
+import finclab.config.main
+from finclab.logger import init_logger
+from simple_parsing import ArgumentParser
+
+# Docker Reigistry
+#   Github Packages Registry: # <org_name>/<repo_name>/<image_name>
+APP_NAME = "openvpn"
+
+logger = init_logger(f"build_{APP_NAME}")
+
+
+def upgrade_finclab():
+    """Fetch latest branch main & prod"""
+    finclab_paper_folder = "/lab/paper/tradestation/docker/finclab"
+    cmd = """
+    cd {finclab_paper_folder} && \
+    git reset --hard main && \
+    git checkout main && \
+    git pull origin main
+    """.format(
+        finclab_paper_folder=finclab_paper_folder
+    )
+    print(cmd)
+    os.system(cmd)
+
+    finclab_prod_folder = "/lab/prod/tradestation/docker/finclab"
+    cmd = """
+    cd {finclab_prod_folder} && \
+    git reset --hard main && \
+    git checkout prod && \
+    git pull origin prod
+    """.format(
+        finclab_prod_folder=finclab_prod_folder
+    )
+    print(cmd)
+    os.system(cmd)
+
+
+@dataclass
+class Build(finclab.cli.build.BuildBase):
+    """(re)Build docker image of the repo."""
+
+    app_name: str = APP_NAME  # App Name
+
+    def build(self):
+        """Build the openvpn image"""
+        logger.info("Building docker image: %s...", self.app_name)
+
+        docker_image = self.config[self.app_name].get_docker_image_name()
+
+        # upgrade_finclab()
+
+        # Build image for a user
+        cmd = f"""
+        docker build . --file ./Dockerfile-Enhanced --tag {docker_image}
+        """
+        print(cmd)
+        os.system(cmd)
+
+    def main(
+        self,
+    ):
+        """Main Entry file"""
+        # Build for each user
+        self.build()
+
+
+@dataclass
+class Push(finclab.cli.build.PushBase):
+    """Push the built docker image to Remote Registry (per image name)"""
+
+    app_name: str = APP_NAME  # App Name
+
+    def main(
+        self,
+    ):
+        """Main Entry file"""
+        pass
+
+
+@dataclass
+class Start(finclab.cli.build.StartBase):
+    """Start the Pod.
+    If current branch is `main`, the service is deployed to Swarm Paper.
+    If current branch is `prod`, the service is deployed to Swarm Prod.
+    Otherwise, the service is started in container.
+    """
+
+    app_name: str = APP_NAME  # App Name
+
+    def main(self):
+        """Deploy OpenVPN Service"""
+
+        # Deploy
+        cmd = """
+        docker-compose up -d --remove-orphans
+        """
+        os.system(cmd)
+
+
+@dataclass
+class Stop(finclab.cli.build.StopBase):
+    """Stop the Pod.
+    If current branch is `main`, the service is removed from Swarm Paper.
+    If current branch is `prod`, the service is removed from Swarm Prod.
+    Otherwise, the running container is stopped.
+    """
+
+    app_name: str = APP_NAME  # App Name
+
+    def main(self):
+        cmd = """
+        docker-compose down
+        """
+        os.system(cmd)
+
+
+@dataclass
+class Shell(finclab.cli.build.ShellBase):
+    """Launch a shell process from the target container
+    If current branch is `main`, a shell session is launched against the service deployed at Swarm Paper.
+    If current branch is `prod`, a shell session is launched against the service deployed at Swarm Prod.
+    Otherwise, shell session against a running container.
+    """
+
+    app_name: str = APP_NAME  # App Name
+
+    def main(self):
+        # Construct the container name
+        container = "openvpn"
+
+        # Construct the cmd
+        cmd = finclab.cli.build.util.get_docker_exec_cmd(container, swarm=False)
+        cmd += " /bin/bash"
+        print(cmd)
+        os.system(cmd)
+
+
+@dataclass
+class Log(finclab.cli.build.LogBase):
+    """Browse the log of the target container
+    If current branch is `main`, a log shell session is launched against the service deployed at Swarm Paper.
+    If current branch is `prod`, a log shell session is launched against the service deployed at Swarm Prod.
+    Otherwise, launch a log shell session against a running container.
+    """
+
+    app_name: str = APP_NAME  # App Name
+
+
+@dataclass
+class Pip(finclab.cli.build.PipBase):
+    """Upgrade or install the Python packages per `requirements.txt`"""
+
+
+@dataclass
+class Restart:
+    """Restart a particular service
+    If current branch is `main`, the service is removed from Swarm Paper.
+    If current branch is `prod`, the service is removed from Swarm Prod.
+    Otherwise, the running container is stopped.
+    """
+
+    app_name: str = APP_NAME  # App Name
+    service: Optional[str] = None  # Specify individual service name
+    all: bool = True
+
+    def execute(self):
+        if self.service is None and not self.all:
+            raise ValueError(
+                "You must provide at least one service name or set `all` parameter to True"
+            )
+
+        if self.all:
+            cmd = r"""
+            ./cli stop; \
+            ./cli start
+            """
+            os.system(cmd)
+            return
+
+        if self.service is not None:
+            services = self.service.split(" ")
+
+        for service in services:
+            cmd = """
+            docker-compose up -d --force-recreate {}
+            """.format(
+                service
+            )
+            os.system(cmd)
+
+
+@dataclass
+class MainMenu:
+    """TradeStation CLI Main Menu"""
+
+    command: typing.Union[Build, Push, Start, Stop, Log, Shell, Pip, Restart]
+
+    def execute(self):
+        """Main entry point"""
+        return self.command.execute()
+
+
+parser = ArgumentParser()
+parser.add_arguments(MainMenu, dest="PodBuilderCLI")
+
+if __name__ == "__main__":
+    args = parser.parse_args()
+    PodBuilderCLI: MainMenu = args.PodBuilderCLI
+
+    print("TradeStation Main Menu:", PodBuilderCLI)
+    PodBuilderCLI.execute()
