@@ -2,8 +2,43 @@
 
 - Added Nginx to redirect TCP flows on specific port
 
+# Usage
 
-# The rediection of TCP flow is for bbg_client
+## List all existing client profiles
+
+```bash
+sudo ls -lah /lab/data/docker/volume/openvpn-data/pki/private
+```
+
+## Retrive a ovpn file if the client profile has been created.
+
+```bash
+OVPN_DATA="/lab/data/docker/volume/openvpn-data"
+CLIENTNAME="xxx"
+docker run -v $OVPN_DATA:/etc/openvpn --rm kylemanna/openvpn ovpn_getclient $CLIENTNAME > $CLIENTNAME.ovpn
+```
+
+## Create a new ovpn file
+```bash
+OVPN_DATA="/lab/data/docker/volume/openvpn-data"
+CLIENTNAME="xxx"
+docker run -v $OVPN_DATA:/etc/openvpn --rm -it kylemanna/openvpn easyrsa build-client-full $CLIENTNAME nopass
+```
+
+
+## Delete a ovpn profile
+```bash
+# Log into the docker
+CLIENTNAME="xxx"
+ts cli shell
+rm /etc/openvpn/pki/private/$CLIENTNAME.key
+rm /etc/openvpn/pki/reqs/$CLIENTNAME.req
+```
+
+**All credits go to the original author: Kyle Manna**
+(The original git)[https://github.com/kylemanna/docker-openvpn]
+
+The below is the original README.md
 
 
 # OpenVPN for Docker
