@@ -30,9 +30,9 @@ docker run -v $OVPN_DATA:/etc/openvpn --rm -it kylemanna/openvpn easyrsa build-c
 ```bash
 # Log into the docker
 CLIENTNAME="xxx"
-ts cli shell
-rm /etc/openvpn/pki/private/$CLIENTNAME.key
-rm /etc/openvpn/pki/reqs/$CLIENTNAME.req
+OVPN_DATA="/lab/data/docker/volume/openvpn-data"
+docker run -v $OVPN_DATA:/etc/openvpn --rm -it kylemanna/openvpn easyrsa revoke $CLIENTNAME
+docker run -v $OVPN_DATA:/etc/openvpn --rm -it kylemanna/openvpn easyrsa gen-crl
 ```
 
 **All credits go to the original author: Kyle Manna**
