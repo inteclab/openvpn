@@ -12,7 +12,15 @@ services:
     restart: always
     volumes:
      - /lab/data/docker/volume/openvpn-data:/etc/openvpn
-       # networks:
-       #   default:
-       #     external:
-       #       name: lab_default
+    networks:
+      openvpn:
+        ipv4_address: 10.2.1.199
+
+networks:
+  openvpn:
+    ipam:
+      config:
+        - subnet: 10.2.0.0/16
+  # default:
+  #   external:
+  #     name: lab_default
