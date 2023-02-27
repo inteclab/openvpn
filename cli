@@ -118,7 +118,15 @@ class Push(finclab.cli.build.PushBase):
         self,
     ):
         """Main Entry file"""
-        pass
+
+        docker_image = self.config[self.app_name].get_docker_image_name()
+
+        # Push image
+        cmd = f"""
+        docker push {docker_image}
+        """
+        print(cmd)
+        os.system(cmd)
 
 
 @dataclass

@@ -10,30 +10,54 @@
 sudo ls -lah /lab/data/docker/volume/openvpn-data/pki/private
 ```
 
-## Retrive a ovpn file if the client profile has been created.
+## Retrieve an ovpn file if the client profile has been created.
 
 ```bash
 OVPN_DATA="/lab/data/docker/volume/openvpn-data"
 CLIENTNAME="xxx"
-docker run -v $OVPN_DATA:/etc/openvpn --rm kylemanna/openvpn ovpn_getclient $CLIENTNAME > $CLIENTNAME.ovpn
+# docker run -v $OVPN_DATA:/etc/openvpn --rm kylemanna/openvpn ovpn_getclient $CLIENTNAME > $CLIENTNAME.ovpn
+docker run -v $OVPN_DATA:/etc/openvpn --rm docker.pkg.github.com/inteclab/openvpn/openvpn:latest ovpn_getclient $CLIENTNAME > $CLIENTNAME.ovpn
 ```
 
 ## Create a new ovpn file
 ```bash
 OVPN_DATA="/lab/data/docker/volume/openvpn-data"
 CLIENTNAME="xxx"
-docker run -v $OVPN_DATA:/etc/openvpn --rm -it kylemanna/openvpn easyrsa build-client-full $CLIENTNAME nopass
+# docker run -v $OVPN_DATA:/etc/openvpn --rm -it kylemanna/openvpn easyrsa build-client-full $CLIENTNAME nopass
+docker run -v $OVPN_DATA:/etc/openvpn --rm -it docker.pkg.github.com/inteclab/openvpn/openvpn:latest easyrsa build-client-full $CLIENTNAME nopass
 ```
-
 
 ## Delete a ovpn profile
 ```bash
 # Log into the docker
 CLIENTNAME="xxx"
 OVPN_DATA="/lab/data/docker/volume/openvpn-data"
-docker run -v $OVPN_DATA:/etc/openvpn --rm -it kylemanna/openvpn easyrsa revoke $CLIENTNAME
-docker run -v $OVPN_DATA:/etc/openvpn --rm -it kylemanna/openvpn easyrsa gen-crl
+docker run -v $OVPN_DATA:/etc/openvpn --rm -it docker.pkg.github.com/inteclab/openvpn/openvpn:latest easyrsa revoke $CLIENTNAME
+docker run -v $OVPN_DATA:/etc/openvpn --rm -it docker.pkg.github.com/inteclab/openvpn/openvpn:latest easyrsa gen-crl
 ```
+
+## SSL Certificate Expired
+
+  1. First make a backup and delete the data folder: `$OVPN_DATA`
+  2. Initialize the data folder again
+  ```bash
+docker run -v $OVPN_DATA:/etc/openvpn --rm docker.pkg.github.com/inteclab/openvpn/openvpn:latest ovpn_genconfig -u udp://vpn.finclab.com
+docker run -v $OVPN_DATA:/etc/openvpn --rm -it docker.pkg.github.com/inteclab/openvpn/openvpn:latest ovpn_initpki
+  ```
+  3. Transfer the static IP configurations to the data folder - see the next section
+
+
+## Static IP Configuration
+
+```bash
+CERT_COMMON_NAME="bbg_client1"
+echo "ifconfig-push 192.168.254.1 192.168.254.2" | docker run -v $OVPN_DATA:/etc/openvpn -i --rm docker.pkg.github.com/inteclab/openvpn/openvpn:latest tee /etc/openvpn/ccd/$CERT_COMMON_NAME
+        ifconfig-push 192.168.254.1 192.168.254.2
+```
+
+2. Wait for client to reconnect if necessary
+
+
 
 **All credits go to the original author: Kyle Manna**
 (The original git)[https://github.com/kylemanna/docker-openvpn]
